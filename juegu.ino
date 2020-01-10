@@ -34,7 +34,7 @@ void readJoystick(void) {
   Serial.print("a: ");
   Serial.println(a);
   Serial.print("movimiento: ");
-  Serial.println(mando.movimiento);
+  Serial.println(mando.movimiento);  
 */
   mando.pulsador = digitalRead(0);
 }
@@ -69,13 +69,26 @@ int choose_menu_option() {
 
 // Bucle principal del juego
 void start_game() {
-  uint8_t aux = 0;
+  int pos_y = 50, last_pos = 50;
   while(player_score < 5 || game_score < 5){
-    tft.setTextColor(ST7735_WHITE);
-    tft.setRotation(1);
-    tft.setCursor(50,50);
-    tft.print("WIN");
-    aux = readJoystick();
+    
+    readJoystick();
+    if (mando.movimiento > 1) {
+      pos_y += 10;
+    } else if (mando.movimiento < 1) {
+      pos_y -= 10;
+    }
+    
+    if (last_pos != pos_y) {
+      tft.fillScreen(ST7735_BLACK);
+      tft.setTextColor(ST7735_WHITE);
+      tft.setRotation(1);
+      tft.setCursor(40,pos_y);
+      tft.setTextSize(5);
+      tft.print("WIN");
+      last_pos = pos_y;
+    }
+    
   }
 }
 
@@ -93,13 +106,27 @@ void show_high_scores() {
 
 void setup(void) {
     Serial.begin(9600);
-    Serial.print(F("Hello! ST7735 TFT Test"));
+  // Initialize 1.8" TFT
+  tft.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
+  tft.fillScreen(ST7735_BLACK);
+  
+  Serial.println("OK!");
+  //Prints the Title, the two walls, and "press joystick" on the title screen
+  tft.setTextSize(5);//Prints "PONG"
+  tft.setCursor(6,30);
+  tft.print("PONG");
 
-    tft.initR(INITR_BLACKTAB);
+  tft.setTextSize(0);//Prints "Press Joystick"
+  tft.setCursor(20,140);
+  tft.print("Press Joystick");
 
-    Serial.print(F("Initialized"));
-    tft.fillScreen(ST77XX_BLACK);
-    // drawtext("texto");
+  tft.drawLine(20,90,20,120,ST7735_WHITE); //Prints the 2 walls in the title screen
+  tft.drawLine(21,90,21,120,ST7735_WHITE);
+  tft.drawLine(100,90,100,120,ST7735_WHITE);
+  tft.drawLine(99,90,99,120,ST7735_WHITE);
+
+  randomSeed(analogRead(0));//Set up for future uses of "RNG"
+    
     menu = 0;
     dificultad = 0;
     mando.pulsador = 0;
