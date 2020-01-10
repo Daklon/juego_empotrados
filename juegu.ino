@@ -13,32 +13,28 @@ int joystick_value = 0; // Valor del joystick al recibirlo con analogRead(analog
 int player_score = 0, game_score = 0; // Puntuaciones del jugador y de la máquina
 
 // Menú de opciones
-typedef enum {
-	START_GAME = 0,
-	DIFFICULTY,
-	HIGH_SCORE,
-	QUIT
-} game_menu;
+#define START_GAME	0
+#define DIFFICULTY	1
+#define HIGH_SCORE	2
+#define QUIT		3
 
 // Dificultad de la IA. Determina la velocidad de movimiento
-typedef enum {
-	EASY  = 0,
-	HARD
-} difficulty;
+#define EASY	0
+#define HARD	1
 
 typedef struct {
 	char player_name[16];
 	unsigned score;
 } high_score;
 
-game_menu menu = START_GAME;
-difficulty dificultad = EASY;
+int menu;
+int dificultad;
 high_score scores[5];
 
 void drawtext(char *text, uint16_t color){
     tft.setCursor(0,0);
     tft.setTextColor(color);
-    tft.setWrap(true);
+    // tft.setWrap(true);
     tft.print(text);
 
 }
@@ -74,13 +70,16 @@ void setup(void) {
     tft.initR(INITR_BLACKTAB);
 
     Serial.print(F("Initialized"));
-    tft.fillScreeen(ST77XX_BLACK);
-    drawtext("texto");
+    tft.fillScreen(ST77XX_BLACK);
+    // drawtext("texto");
+	menu = 0;
+	dificultad = 0;
 }
 
 //Aquí va el código del juego
 void loop(){
 	// Menú
+	/*
 	do {
 		menu = choose_menu_option();
 		switch (menu) {
@@ -96,6 +95,8 @@ void loop(){
 		}
 	}
 	while (option != QUIT);
+	*/
+	start_game();
 	exit(0);
 }
 
