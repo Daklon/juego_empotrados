@@ -33,7 +33,7 @@ typedef struct {
 
 game_menu menu = START_GAME;
 difficulty dificultad = EASY;
-high_score *scores[5];
+high_score scores[5];
 
 void drawtext(char *text, uint16_t color){
     tft.setCursor(0,0);
