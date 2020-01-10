@@ -18,6 +18,27 @@ int player_score = 0, game_score = 0; // Puntuaciones del jugador y de la máqui
 #define HIGH_SCORE	2
 #define QUIT		3
 
+typedef struct {
+  int pulsador;
+  int movimiento;
+} joystick;
+
+joystick mando;
+//el pulsador del joystick se lee desde el pin 3
+void readJoystick(void) {
+  int a = analogRead(1);
+
+  mando.movimiento = a / 500;
+/*
+  Serial.print("Button read analog = ");
+  Serial.print("a: ");
+  Serial.println(a);
+  Serial.print("movimiento: ");
+  Serial.println(mando.movimiento);
+*/
+  mando.pulsador = digitalRead(0);
+}
+
 // Dificultad de la IA. Determina la velocidad de movimiento
 #define EASY	0
 #define HARD	1
@@ -42,17 +63,24 @@ void drawtext(char *text, uint16_t color){
 // Utiliza el joystick para determinar
 // la opción escogida.
 // Devuelve el valor al pulsar el joystick
-game_menu choose_menu_option() {
+int choose_menu_option() {
 
 }
 
 // Bucle principal del juego
 void start_game() {
-
+  uint8_t aux = 0;
+  while(player_score < 5 || game_score < 5){
+    tft.setTextColor(ST7735_WHITE);
+    tft.setRotation(1);
+    tft.setCursor(50,50);
+    tft.print("WIN");
+    aux = readJoystick();
+  }
 }
 
 // Selecciona entre dificultades
-difficulty change_difficulty() {
+int change_difficulty() {
 
 }
 
@@ -72,8 +100,10 @@ void setup(void) {
     Serial.print(F("Initialized"));
     tft.fillScreen(ST77XX_BLACK);
     // drawtext("texto");
-	menu = 0;
-	dificultad = 0;
+    menu = 0;
+    dificultad = 0;
+    mando.pulsador = 0;
+    mando.movimiento = 1;
 }
 
 //Aquí va el código del juego
@@ -99,4 +129,5 @@ void loop(){
 	start_game();
 	exit(0);
 }
+
 
