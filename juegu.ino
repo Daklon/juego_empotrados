@@ -16,6 +16,11 @@
 #define PORTRAIT_ROTATION 0
 #define LANDSCAPE_ROTATION 1
 
+#define BAR_WIDTH 20
+#define BALL_MARGIN 30
+
+#define WIN_SCORE 5
+
 // Menú de opciones
 typedef enum {
 	START_GAME = 0,
@@ -36,7 +41,7 @@ typedef struct {
 } joystick;
 
 typedef struct {
-	unsigned pos_y = TFT_RESOLUTION_Y / 2 - 15;
+	unsigned pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
 	unsigned score = 0;
 	bool starts = false;
 	bool is_left = false;
@@ -45,6 +50,8 @@ typedef struct {
 typedef struct {
 	unsigned pos_x = TFT_RESOLUTION_X / 2;
 	unsigned pos_y = TFT_RESOLUTION_Y / 2;
+	unsigned speed = 1;
+	int angle = 0;
 } ball;
 
 typedef struct {
@@ -72,6 +79,7 @@ void readJoystick(void) {
 menu choose_menu_option() {}
 
 void draw_ball(ball pelota, unsigned color) {
+	clear_ball(pelota);
 	tft.drawPixel(pelota.pos_x, pelota.pos_y, color);
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y, color);
 	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y, color);
@@ -79,67 +87,110 @@ void draw_ball(ball pelota, unsigned color) {
 	tft.drawPixel(pelota.pos_x, pelota.pos_y - 1, color);
 }
 
-void draw_bar(player jugador) {
-	unsigned pos_x = (jugador.is_left) ? 20 : TFT_RESOLUTION_X - 20;
-	tft.drawFastVLine(pos_x, 0, jugador.pos_y, ST7735_BLACK);
-	tft.drawFastVLine(pos_x, jugador.pos_y, 30, ST7735_WHITE);
-	tft.drawFastVLine(pos_x, jugador.pos_y + 30, TFT_RESOLUTION_Y - (jugador.pos_y + 30), ST7735_BLACK);
+void clear_ball(ball pelota) {
+	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y + 1, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y - 1, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y + 1, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y - 1, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y - 1, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x + 2, pelota.pos_y, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x - 2, pelota.pos_y, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x, pelota.pos_y + 2, ST7735_BLACK);
+	tft.drawPixel(pelota.pos_x, pelota.pos_y - 2, ST7735_BLACK);
 }
 
-// Bucle principal del juego
+void draw_bar(player jugador) {
+	unsigned pos_x = (jugador.is_left) ? 20 : TFT_RESOLUTION_X - 20;
+	tft.drawPixel(pos_x, jugador.pos_y - 1, ST7735_BLACK);
+	tft.drawPixel(pos_x, jugador.pos_y + BAR_WIDTH + 1, ST7735_BLACK);
+	tft.drawFastVLine(pos_x, jugador.pos_y, BAR_WIDTH, ST7735_WHITE);
+}
+
+void draw_score(player jugador, unsigned color) {
+	unsigned score_pos = jugador.is_left ? 40 : TFT_RESOLUTION_X - 48;
+	tft.setCursor(score_pos, 10);
+	tft.setTextSize(2);
+	tft.setTextColor(color);
+	tft.print(jugador.score);
+}
 
 void move_player(player *jugador) {
 	readJoystick();
-	if (mando.movimiento > 1 && (jugador->pos_y + 30) != TFT_RESOLUTION_Y)
+	if (mando.movimiento > 1 && (jugador->pos_y + BAR_WIDTH) != TFT_RESOLUTION_Y)
 	{ jugador->pos_y += 1; }
 	else if (mando.movimiento < 1 && jugador->pos_y != 0)
 	{ jugador->pos_y -= 1; }
 }
 
-void move_player_pelota(player *jugador, ball *pelota) {
+void move_player_ball(player *jugador, ball *pelota) {
 	readJoystick();
-	if (mando.movimiento > 1 && (jugador->pos_y + 30) != TFT_RESOLUTION_Y)
-	{ draw_ball(*pelota, ST7735_BLACK); jugador->pos_y += 1; pelota->pos_y += 1; }
+	if (mando.movimiento > 1 && (jugador->pos_y + BAR_WIDTH) != TFT_RESOLUTION_Y)
+	{ jugador->pos_y += 1; pelota->pos_y += 1; }
 	else if (mando.movimiento < 1 && jugador->pos_y != 0)
-	{ draw_ball(*pelota, ST7735_BLACK); jugador->pos_y -= 1; pelota->pos_y -= 1; }
+	{ jugador->pos_y -= 1; pelota->pos_y -= 1; }
 }
 
+void move_ball(ball *pelota) {
+	pelota->pos_x += pelota->speed;
+	// pelota.pos_y += pelota.speed * pelota.angle;
+}
+
+// Bucle principal del juego
 void start_game() {
+
 	player jugador, maquina;
 	ball pelota;
 
 	jugador.starts = true;
 	jugador.is_left = true;
-	pelota.pos_x = jugador.starts ? 30 : TFT_RESOLUTION_X - 30;
-	while(jugador.score < 5 || maquina.score < 5){
+	while(jugador.score < WIN_SCORE && maquina.score < WIN_SCORE) {
+		tft.fillScreen(ST7735_BLACK);
+		tft.drawFastVLine(TFT_RESOLUTION_X / 2, 0, TFT_RESOLUTION_Y, ST7735_WHITE);
+		pelota.pos_x = jugador.starts ? BALL_MARGIN : TFT_RESOLUTION_X - BALL_MARGIN;
 		// El jugador lanza la pelota con mando.pulsador
 		while (!mando.pulsador) {
-			draw_bar(jugador);
-			draw_bar(maquina);
+			draw_score(jugador, ST7735_WHITE); draw_bar(jugador);
+			draw_score(maquina, ST7735_WHITE); draw_bar(maquina);
 			draw_ball(pelota, ST7735_GREEN);
 
-			move_player_pelota(&jugador, &pelota);
+			move_player_ball(&jugador, &pelota);
 		}
 
-	/*
+		// El juego sucede mientras la pelota no toque ninguna pared
+		while (pelota.pos_x != 0 && pelota.pos_x != TFT_RESOLUTION_X) {
+			tft.drawFastVLine(TFT_RESOLUTION_X / 2, 0, TFT_RESOLUTION_Y, ST7735_WHITE);
+			draw_score(jugador, ST7735_WHITE); draw_bar(jugador);
+			draw_score(maquina, ST7735_WHITE); draw_bar(maquina);
+			draw_ball(pelota, ST7735_GREEN);
 
-		readJoystick();
-		if (mando.movimiento > 1) {
-			pos_y += 10;
-		} else if (mando.movimiento < 1) {
-			pos_y -= 10;
+			move_ball(&pelota);
+			// Comprobar colisiones con techo, suelo y jugadores
+			// if (check_collition()) {}
+			move_player(&jugador);
 		}
-
-		if (last_pos != pos_y) {
-			tft.fillScreen(ST7735_BLACK);
-			tft.setTextColor(ST7735_WHITE);
-			tft.setCursor(40,pos_y);
-			tft.setTextSize(5);
-			tft.print("WIN");
-			last_pos = pos_y;
-		}
-
-	*/
+		draw_ball(pelota, ST7735_BLACK);
+		jugador.pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
+		pelota.pos_y = TFT_RESOLUTION_Y / 2;
+		if		(pelota.pos_x == 0) { maquina.score += 1; }
+		else if	(pelota.pos_x == TFT_RESOLUTION_X) { jugador.score += 1; }
+	}
+	// TODO: Pantalla de "YOU WIN/YOU LOSE"
+	tft.fillScreen(ST7735_BLACK);
+	if (jugador.score == WIN_SCORE) {
+	// TODO: Si el jugador gana ==> Enter your name: y (registrar en high score O aumentar contador)
+		tft.setCursor(5, 30);
+		tft.setTextSize(4);
+		tft.setTextColor(ST7735_GREEN);
+		tft.print("PLAYER");
+		tft.setCursor(30, 70);
+		tft.print("WINS");
+	} else {
+		tft.setCursor(5, 30);
+		tft.setTextSize(4);
+		tft.setTextColor(ST7735_RED);
+		tft.print("PLAYER");
+		tft.setCursor(20, 70);
+		tft.print("LOSES");
 	}
 }
 
@@ -162,17 +213,8 @@ void setup(void) {
 	   Serial.println("OK!");
 	//Prints the Title, the two walls, and "press joystick" on the title screen
 	tft.setTextSize(5);//Prints "PONG"
-	tft.setCursor(6,30);
+	tft.setCursor(6,BAR_WIDTH);
 	tft.print("PONG");
-
-	tft.setTextSize(0);//Prints "Press Joystick"
-	tft.setCursor(20,140);
-	tft.print("Press Joystick");
-
-	tft.drawLine(20,90,20,120,ST7735_WHITE); //Prints the 2 walls in the title screen
-	tft.drawLine(21,90,21,120,ST7735_WHITE);
-	tft.drawLine(100,90,100,120,ST7735_WHITE);
-	tft.drawLine(99,90,99,120,ST7735_WHITE);
 	 */
 	opcion_menu = START_GAME;
 	dificultad = EASY;
