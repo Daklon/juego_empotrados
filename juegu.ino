@@ -36,14 +36,15 @@ typedef struct {
 } joystick;
 
 typedef struct {
-	unsigned pos_x;
-	bool starts = false;
+	unsigned pos_y = TFT_RESOLUTION_Y / 2 - 15;
 	unsigned score = 0;
+	bool starts = false;
+	bool is_left = false;
 } player;
 
 typedef struct {
-	unsigned pos_x;
-	unsigned pos_y;
+	unsigned pos_x = TFT_RESOLUTION_X / 2;
+	unsigned pos_y = TFT_RESOLUTION_Y / 2;
 } ball;
 
 typedef struct {
@@ -62,7 +63,7 @@ void readJoystick(void) {
 	int analog = analogRead(JOYSTICK_ANALOG_X);
 
 	mando.movimiento = analog / 500;
-	mando.pulsador = digitalRead(JOYSTICK_SWITCH);
+	mando.pulsador = digitalRead(JOYSTICK_SWITCH) == 1 ? 0 : 1;
 }
 
 // Utiliza el joystick para determinar
@@ -70,12 +71,56 @@ void readJoystick(void) {
 // Devuelve el valor al pulsar el joystick
 menu choose_menu_option() {}
 
+void draw_ball(ball pelota, unsigned color) {
+	tft.drawPixel(pelota.pos_x, pelota.pos_y, color);
+	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y, color);
+	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y, color);
+	tft.drawPixel(pelota.pos_x, pelota.pos_y + 1, color);
+	tft.drawPixel(pelota.pos_x, pelota.pos_y - 1, color);
+}
+
+void draw_bar(player jugador) {
+	unsigned pos_x = (jugador.is_left) ? 20 : TFT_RESOLUTION_X - 20;
+	tft.drawFastVLine(pos_x, 0, jugador.pos_y, ST7735_BLACK);
+	tft.drawFastVLine(pos_x, jugador.pos_y, 30, ST7735_WHITE);
+	tft.drawFastVLine(pos_x, jugador.pos_y + 30, TFT_RESOLUTION_Y - (jugador.pos_y + 30), ST7735_BLACK);
+}
+
 // Bucle principal del juego
+
+void move_player(player *jugador) {
+	readJoystick();
+	if (mando.movimiento > 1 && (jugador->pos_y + 30) != TFT_RESOLUTION_Y)
+	{ jugador->pos_y += 1; }
+	else if (mando.movimiento < 1 && jugador->pos_y != 0)
+	{ jugador->pos_y -= 1; }
+}
+
+void move_player_pelota(player *jugador, ball *pelota) {
+	readJoystick();
+	if (mando.movimiento > 1 && (jugador->pos_y + 30) != TFT_RESOLUTION_Y)
+	{ draw_ball(*pelota, ST7735_BLACK); jugador->pos_y += 1; pelota->pos_y += 1; }
+	else if (mando.movimiento < 1 && jugador->pos_y != 0)
+	{ draw_ball(*pelota, ST7735_BLACK); jugador->pos_y -= 1; pelota->pos_y -= 1; }
+}
+
 void start_game() {
 	player jugador, maquina;
+	ball pelota;
+
+	jugador.starts = true;
+	jugador.is_left = true;
+	pelota.pos_x = jugador.starts ? 30 : TFT_RESOLUTION_X - 30;
 	while(jugador.score < 5 || maquina.score < 5){
-		// Dibujar jugadores, pelota
 		// El jugador lanza la pelota con mando.pulsador
+		while (!mando.pulsador) {
+			draw_bar(jugador);
+			draw_bar(maquina);
+			draw_ball(pelota, ST7735_GREEN);
+
+			move_player_pelota(&jugador, &pelota);
+		}
+
 	/*
 
 		readJoystick();
