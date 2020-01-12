@@ -19,6 +19,7 @@
 #define BAR_WIDTH 20
 #define BALL_MARGIN 30
 
+#define BALL_SPEED_FACTOR 2
 #define WIN_SCORE 5
 
 // Menú de opciones
@@ -50,8 +51,8 @@ typedef struct {
 typedef struct {
 	unsigned pos_x = TFT_RESOLUTION_X / 2;
 	unsigned pos_y = TFT_RESOLUTION_Y / 2;
-	unsigned speed = 1;
 	int angle = 0;
+	bool goes_left = false;
 } ball;
 
 typedef struct {
@@ -87,6 +88,7 @@ void draw_ball(ball pelota, unsigned color) {
 	tft.drawPixel(pelota.pos_x, pelota.pos_y - 1, color);
 }
 
+// TODO: Arreglar trails que se quedan por detrás
 void clear_ball(ball pelota) {
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y + 1, ST7735_BLACK);
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y - 1, ST7735_BLACK);
@@ -122,6 +124,11 @@ void move_player(player *jugador) {
 	{ jugador->pos_y -= 1; }
 }
 
+// TODO: Implementar
+void move_machine(player *machine, ball pelota) {
+
+}
+
 void move_player_ball(player *jugador, ball *pelota) {
 	readJoystick();
 	if (mando.movimiento > 1 && (jugador->pos_y + BAR_WIDTH) != TFT_RESOLUTION_Y)
@@ -130,9 +137,35 @@ void move_player_ball(player *jugador, ball *pelota) {
 	{ jugador->pos_y -= 1; pelota->pos_y -= 1; }
 }
 
-void move_ball(ball *pelota) {
-	pelota->pos_x += pelota->speed;
-	// pelota.pos_y += pelota.speed * pelota.angle;
+void move_ball(ball *pelota, int sentido) {
+	pelota->pos_x += sentido;
+	if (pelota->angle != 0) {
+		pelota->pos_y += (pelota->angle > 0) ? 1 : -1;
+	}
+}
+
+bool check_collition_bar(ball *pelota, player a, player b) {
+	if (pelota->pos_x == TFT_RESOLUTION_X - 20 || pelota->pos_x == 20) {
+		if ((pelota->pos_y >= a.pos_y && pelota->pos_y <= (a.pos_y + BAR_WIDTH) && pelota->goes_left) ||
+			(pelota->pos_y >= b.pos_y && pelota->pos_y <= (b.pos_y + BAR_WIDTH)) && !pelota->goes_left)
+		{
+			if (pelota->goes_left) {
+				pelota->angle += (a.pos_y + BAR_WIDTH) - pelota->pos_y;
+			} else {
+				pelota->angle += (b.pos_y + BAR_WIDTH) - pelota->pos_y;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+bool check_collition_vertical(ball *pelota) {
+	if (pelota->pos_y - 1 == 0 || pelota->pos_y + 1 == TFT_RESOLUTION_Y) {
+		pelota->angle = -pelota->angle;
+		return true;
+	}
+	return false;
 }
 
 // Bucle principal del juego
@@ -140,6 +173,7 @@ void start_game() {
 
 	player jugador, maquina;
 	ball pelota;
+	int factor = 0, sentido = 1;
 
 	jugador.starts = true;
 	jugador.is_left = true;
@@ -147,6 +181,7 @@ void start_game() {
 		tft.fillScreen(ST7735_BLACK);
 		tft.drawFastVLine(TFT_RESOLUTION_X / 2, 0, TFT_RESOLUTION_Y, ST7735_WHITE);
 		pelota.pos_x = jugador.starts ? BALL_MARGIN : TFT_RESOLUTION_X - BALL_MARGIN;
+		pelota.angle = 0;
 		// El jugador lanza la pelota con mando.pulsador
 		while (!mando.pulsador) {
 			draw_score(jugador, ST7735_WHITE); draw_bar(jugador);
@@ -163,30 +198,38 @@ void start_game() {
 			draw_score(maquina, ST7735_WHITE); draw_bar(maquina);
 			draw_ball(pelota, ST7735_GREEN);
 
-			move_ball(&pelota);
 			// Comprobar colisiones con techo, suelo y jugadores
-			// if (check_collition()) {}
+
+			// Control de la velocidad de la pelota
+			if (factor % BALL_SPEED_FACTOR == 0) {
+				check_collition_vertical(&pelota);
+				if (check_collition_bar(&pelota, jugador, maquina)) {
+					sentido *= -1;
+					pelota.goes_left = !pelota.goes_left;
+				}
+				move_ball(&pelota, sentido);
+			}
 			move_player(&jugador);
+			move_machine(&maquina, pelota);
+			factor += 1;
 		}
 		draw_ball(pelota, ST7735_BLACK);
 		jugador.pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
 		pelota.pos_y = TFT_RESOLUTION_Y / 2;
-		if		(pelota.pos_x == 0) { maquina.score += 1; }
-		else if	(pelota.pos_x == TFT_RESOLUTION_X) { jugador.score += 1; }
+		if		(pelota.pos_x == 0) { maquina.score += 1; sentido = 1; }
+		else if	(pelota.pos_x == TFT_RESOLUTION_X) { jugador.score += 1; sentido = 1; } // TODO: Cambiar sentido cuando haya IA
 	}
 	// TODO: Pantalla de "YOU WIN/YOU LOSE"
 	tft.fillScreen(ST7735_BLACK);
+	tft.setCursor(5, 30);
+	tft.setTextSize(4);
 	if (jugador.score == WIN_SCORE) {
 	// TODO: Si el jugador gana ==> Enter your name: y (registrar en high score O aumentar contador)
-		tft.setCursor(5, 30);
-		tft.setTextSize(4);
 		tft.setTextColor(ST7735_GREEN);
 		tft.print("PLAYER");
 		tft.setCursor(30, 70);
 		tft.print("WINS");
 	} else {
-		tft.setCursor(5, 30);
-		tft.setTextSize(4);
 		tft.setTextColor(ST7735_RED);
 		tft.print("PLAYER");
 		tft.setCursor(20, 70);
