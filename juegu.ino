@@ -2,6 +2,8 @@
 #include <Adafruit_ST7735.h>
 #include <SPI.h>
 
+#define SECONDS 1000
+
 #define JOYSTICK_ANALOG_X 1
 #define JOYSTICK_SWITCH 0
 
@@ -124,9 +126,13 @@ void move_player(player *jugador) {
 	{ jugador->pos_y -= 1; }
 }
 
-// TODO: Implementar
+// TODO: Nerfear a la máquina
 void move_machine(player *machine, ball pelota) {
+	if (pelota.pos_y > (machine->pos_y + BAR_WIDTH / 2) && machine->pos_y >= 0)
+	{ machine->pos_y += 1; }
 
+	if (pelota.pos_y < (machine->pos_y + BAR_WIDTH / 2) && machine->pos_y <= TFT_RESOLUTION_Y)
+	{ machine->pos_y -= 1; }
 }
 
 void move_player_ball(player *jugador, ball *pelota) {
@@ -170,7 +176,6 @@ bool check_collition_vertical(ball *pelota) {
 
 // Bucle principal del juego
 void start_game() {
-
 	player jugador, maquina;
 	ball pelota;
 	int factor = 0, sentido = 1;
@@ -183,13 +188,13 @@ void start_game() {
 		pelota.pos_x = jugador.starts ? BALL_MARGIN : TFT_RESOLUTION_X - BALL_MARGIN;
 		pelota.angle = 0;
 		// El jugador lanza la pelota con mando.pulsador
-		while (!mando.pulsador) {
+		while (!mando.pulsador && jugador.starts) {
 			draw_score(jugador, ST7735_WHITE); draw_bar(jugador);
 			draw_score(maquina, ST7735_WHITE); draw_bar(maquina);
 			draw_ball(pelota, ST7735_GREEN);
 
 			move_player_ball(&jugador, &pelota);
-		}
+		} 
 
 		// El juego sucede mientras la pelota no toque ninguna pared
 		while (pelota.pos_x != 0 && pelota.pos_x != TFT_RESOLUTION_X) {
@@ -197,8 +202,6 @@ void start_game() {
 			draw_score(jugador, ST7735_WHITE); draw_bar(jugador);
 			draw_score(maquina, ST7735_WHITE); draw_bar(maquina);
 			draw_ball(pelota, ST7735_GREEN);
-
-			// Comprobar colisiones con techo, suelo y jugadores
 
 			// Control de la velocidad de la pelota
 			if (factor % BALL_SPEED_FACTOR == 0) {
@@ -215,11 +218,19 @@ void start_game() {
 		}
 		draw_ball(pelota, ST7735_BLACK);
 		jugador.pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
+		maquina.pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
 		pelota.pos_y = TFT_RESOLUTION_Y / 2;
-		if		(pelota.pos_x == 0) { maquina.score += 1; sentido = 1; }
-		else if	(pelota.pos_x == TFT_RESOLUTION_X) { jugador.score += 1; sentido = 1; } // TODO: Cambiar sentido cuando haya IA
+		if (pelota.pos_x == 0) {
+			maquina.score += 1; sentido = 1; pelota.goes_left = false;
+			maquina.starts = false; jugador.starts = true;
+		}
+		else if (pelota.pos_x == TFT_RESOLUTION_X) {
+			jugador.score += 1; sentido = -1; pelota.goes_left = true;
+			jugador.starts = false; maquina.starts = true;
+		}
+		delay(1 * SECONDS);
 	}
-	// TODO: Pantalla de "YOU WIN/YOU LOSE"
+	// Pantalla de "YOU WIN/YOU LOSE"
 	tft.fillScreen(ST7735_BLACK);
 	tft.setCursor(5, 30);
 	tft.setTextSize(4);
