@@ -4,7 +4,7 @@
 
 #define SECONDS 1000
 
-#define JOYSTICK_ANALOG_X 1
+#define JOYSTICK_ANALOG_Y 1
 #define JOYSTICK_SWITCH 0
 
 #define TFT_CS 10
@@ -70,7 +70,7 @@ joystick mando;
 high_score puntuaciones[5];
 
 void readJoystick(void) {
-	int analog = analogRead(JOYSTICK_ANALOG_X);
+	int analog = analogRead(JOYSTICK_ANALOG_Y);
 
 	mando.movimiento = analog / 500;
 	mando.pulsador = digitalRead(JOYSTICK_SWITCH) == 1 ? 0 : 1;
@@ -79,7 +79,22 @@ void readJoystick(void) {
 // Utiliza el joystick para determinar
 // la opción escogida.
 // Devuelve el valor al pulsar el joystick
-menu choose_menu_option() {}
+menu start_menu() {
+	menu seleccion = START_GAME;
+	tft.fillScreen(ST7735_BLACK);
+	while (!mando.pulsador) {
+			tft.setCursor(30, 20);
+			tft.setTextSize(4);
+			tft.setTextColor(ST7735_BLUE);
+			tft.print("PONG");
+			while (!mando.movimiento || !mando.pulsador) {
+				readJoystick();
+			}
+	}
+	delay(200);
+	readJoystick();
+	return seleccion;
+}
 
 void draw_ball(ball pelota, unsigned color) {
 	clear_ball(pelota);
@@ -90,17 +105,12 @@ void draw_ball(ball pelota, unsigned color) {
 	tft.drawPixel(pelota.pos_x, pelota.pos_y - 1, color);
 }
 
-// TODO: Arreglar trails que se quedan por detrás
 void clear_ball(ball pelota) {
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y + 1, ST7735_BLACK);
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y - 1, ST7735_BLACK);
 	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y + 1, ST7735_BLACK);
 	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y - 1, ST7735_BLACK);
-	tft.drawPixel(pelota.pos_x - 1, pelota.pos_y - 1, ST7735_BLACK);
-	tft.drawPixel(pelota.pos_x + 2, pelota.pos_y, ST7735_BLACK);
-	tft.drawPixel(pelota.pos_x - 2, pelota.pos_y, ST7735_BLACK);
-	tft.drawPixel(pelota.pos_x, pelota.pos_y + 2, ST7735_BLACK);
-	tft.drawPixel(pelota.pos_x, pelota.pos_y - 2, ST7735_BLACK);
+	tft.drawCircle(pelota.pos_x, pelota.pos_y, 2, ST7735_BLACK);
 }
 
 void draw_bar(player jugador) {
@@ -126,13 +136,27 @@ void move_player(player *jugador) {
 	{ jugador->pos_y -= 1; }
 }
 
-// TODO: Nerfear a la máquina
 void move_machine(player *machine, ball pelota) {
-	if (pelota.pos_y > (machine->pos_y + BAR_WIDTH / 2) && machine->pos_y >= 0)
-	{ machine->pos_y += 1; }
+	static unsigned do_inverse = 0;
+	if (pelota.pos_y > (machine->pos_y + BAR_WIDTH / 2) &&
+		(machine->pos_y + BAR_WIDTH != TFT_RESOLUTION_Y)) {
+		if (do_inverse > 0 && machine->pos_y != 0) {
+			machine->pos_y -= 1;
+		}
+		else if (do_inverse == 0) {
+			machine->pos_y += 1;
+		}
+	}
+	if (pelota.pos_y < (machine->pos_y + BAR_WIDTH / 2) && machine->pos_y != 0) {
+		if (machine->pos_y + BAR_WIDTH != TFT_RESOLUTION_Y && do_inverse > 0) {
+			machine->pos_y += 1;
+		}
+		else if (do_inverse == 0) {
+			machine->pos_y -= 1;
+		}
+	}
 
-	if (pelota.pos_y < (machine->pos_y + BAR_WIDTH / 2) && machine->pos_y <= TFT_RESOLUTION_Y)
-	{ machine->pos_y -= 1; }
+	if (do_inverse > 0) { do_inverse -= 1; } else { do_inverse = random(250) == 0 ? 50 : 0; }
 }
 
 void move_player_ball(player *jugador, ball *pelota) {
@@ -156,10 +180,11 @@ bool check_collition_bar(ball *pelota, player a, player b) {
 			(pelota->pos_y >= b.pos_y && pelota->pos_y <= (b.pos_y + BAR_WIDTH)) && !pelota->goes_left)
 		{
 			if (pelota->goes_left) {
-				pelota->angle += (a.pos_y + BAR_WIDTH) - pelota->pos_y;
+				pelota->angle = pelota->pos_y - (a.pos_y + BAR_WIDTH / 2);
 			} else {
-				pelota->angle += (b.pos_y + BAR_WIDTH) - pelota->pos_y;
+				pelota->angle = pelota->pos_y - (b.pos_y + BAR_WIDTH / 2);
 			}
+			pelota->angle = pelota->angle != 0 ? pelota->angle : random(-9, 10);
 			return true;
 		}
 	}
@@ -188,13 +213,13 @@ void start_game() {
 		pelota.pos_x = jugador.starts ? BALL_MARGIN : TFT_RESOLUTION_X - BALL_MARGIN;
 		pelota.angle = 0;
 		// El jugador lanza la pelota con mando.pulsador
-		while (!mando.pulsador && jugador.starts) {
+		do {
 			draw_score(jugador, ST7735_WHITE); draw_bar(jugador);
 			draw_score(maquina, ST7735_WHITE); draw_bar(maquina);
 			draw_ball(pelota, ST7735_GREEN);
 
 			move_player_ball(&jugador, &pelota);
-		} 
+		} while (!mando.pulsador && jugador.starts);
 
 		// El juego sucede mientras la pelota no toque ninguna pared
 		while (pelota.pos_x != 0 && pelota.pos_x != TFT_RESOLUTION_X) {
@@ -213,7 +238,9 @@ void start_game() {
 				move_ball(&pelota, sentido);
 			}
 			move_player(&jugador);
-			move_machine(&maquina, pelota);
+			if (factor % 2 == 0) {
+				move_machine(&maquina, pelota);
+			}
 			factor += 1;
 		}
 		draw_ball(pelota, ST7735_BLACK);
@@ -258,6 +285,7 @@ void show_high_scores() {}
 
 void setup(void) {
 	Serial.begin(9600);
+	randomSeed(analogRead(5));
 	// Initialize 1.8" TFT
 	tft.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
 	tft.fillScreen(ST7735_BLACK);
@@ -279,24 +307,23 @@ void setup(void) {
 //Aquí va el código del juego
 void loop(){
 	// Menú
-	/*
-	   do {
-	   print_menu();
-	   menu = choose_menu_option();
-	   switch (menu) {
-	   case START_GAME:
-	   start_game();
-	   break;
-	   case DIFFICULTY:
-	   difficulty = change_difficulty();
-	   break;
-	   case HIGH_SCORE:
-	   show_high_scores();
-	   break;
-	   }
-	   }
-	   while (option != QUIT);
-	 */
-	start_game();
+	do {
+		opcion_menu = start_menu();
+
+		switch (opcion_menu) {
+		case START_GAME:
+			start_game();
+			break;
+		/*
+		case DIFFICULTY:
+			difficulty = change_difficulty();
+			break;
+		case HIGH_SCORE:
+			show_high_scores();
+			break;
+		*/
+		}
+	}
+	while (opcion_menu != QUIT);
 	exit(0);
 }
