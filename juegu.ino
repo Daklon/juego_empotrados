@@ -21,7 +21,7 @@
 #define BAR_WIDTH 20
 #define BALL_MARGIN 30
 
-#define BALL_SPEED_FACTOR 2
+#define BALL_SPEED_FACTOR 1
 #define WIN_SCORE 5
 
 // Menú de opciones
@@ -156,7 +156,17 @@ void move_machine(player *machine, ball pelota) {
 		}
 	}
 
-	if (do_inverse > 0) { do_inverse -= 1; } else { do_inverse = random(250) == 0 ? 50 : 0; }
+	if (pelota.pos_y == (machine->pos_y + BAR_WIDTH / 2) && machine->pos_y != 0 &&
+		machine->pos_y + BAR_WIDTH != TFT_RESOLUTION_Y && do_inverse > 0) {
+		if (machine->pos_y != 0) {
+			machine->pos_y -= 1;
+		}
+		else if (machine->pos_y + BAR_WIDTH != 0) {
+			machine->pos_y += 1;
+		}
+	}
+
+	if (do_inverse > 0) { do_inverse -= 1; } else { do_inverse = random(100) == 0 ? 20 : 0; }
 }
 
 void move_player_ball(player *jugador, ball *pelota) {
@@ -168,9 +178,14 @@ void move_player_ball(player *jugador, ball *pelota) {
 }
 
 void move_ball(ball *pelota, int sentido) {
+	static unsigned contador_angulo = 0;
 	pelota->pos_x += sentido;
 	if (pelota->angle != 0) {
-		pelota->pos_y += (pelota->angle > 0) ? 1 : -1;
+		if (contador_angulo % pelota->angle == 2) { // Probablemente la línea más tensa del programa
+			pelota->pos_y += (pelota->angle > 0) ? 1 : -1;
+			contador_angulo = 0;
+		}
+		contador_angulo += 1;
 	}
 }
 
@@ -191,16 +206,19 @@ bool check_collition_bar(ball *pelota, player a, player b) {
 	return false;
 }
 
+// TODO: Arreglar bug rebote con poco ángulo
 bool check_collition_vertical(ball *pelota) {
 	if (pelota->pos_y - 1 == 0 || pelota->pos_y + 1 == TFT_RESOLUTION_Y) {
-		pelota->angle = -pelota->angle;
+		pelota->angle = (pelota->angle == 0) ? -3 : -pelota->angle;
+		pelota->pos_y += (pelota->pos_y - 1 == 0) ? 1 : -1;
+		clear_ball(*pelota); // Borra trailing accidental al desplazar la pelota
 		return true;
 	}
 	return false;
 }
 
 // Bucle principal del juego
-void start_game() {
+void start_game(difficulty dificultad) {
 	player jugador, maquina;
 	ball pelota;
 	int factor = 0, sentido = 1;
@@ -229,7 +247,7 @@ void start_game() {
 			draw_ball(pelota, ST7735_GREEN);
 
 			// Control de la velocidad de la pelota
-			if (factor % BALL_SPEED_FACTOR == 0) {
+			if (factor % (2 - dificultad) == 0) {
 				check_collition_vertical(&pelota);
 				if (check_collition_bar(&pelota, jugador, maquina)) {
 					sentido *= -1;
@@ -243,7 +261,6 @@ void start_game() {
 			}
 			factor += 1;
 		}
-		draw_ball(pelota, ST7735_BLACK);
 		jugador.pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
 		maquina.pos_y = TFT_RESOLUTION_Y / 2 - BAR_WIDTH / 2;
 		pelota.pos_y = TFT_RESOLUTION_Y / 2;
@@ -273,6 +290,7 @@ void start_game() {
 		tft.setCursor(20, 70);
 		tft.print("LOSES");
 	}
+	delay(2 * SECONDS);
 }
 
 // Selecciona entre dificultades
@@ -291,15 +309,8 @@ void setup(void) {
 	tft.fillScreen(ST7735_BLACK);
 	tft.setRotation(LANDSCAPE_ROTATION);
 
-	/*
-	   Serial.println("OK!");
-	//Prints the Title, the two walls, and "press joystick" on the title screen
-	tft.setTextSize(5);//Prints "PONG"
-	tft.setCursor(6,BAR_WIDTH);
-	tft.print("PONG");
-	 */
 	opcion_menu = START_GAME;
-	dificultad = EASY;
+	dificultad = HARD;
 	mando.pulsador = 0;
 	mando.movimiento = 1;
 }
@@ -312,7 +323,7 @@ void loop(){
 
 		switch (opcion_menu) {
 		case START_GAME:
-			start_game();
+			start_game(dificultad);
 			break;
 		/*
 		case DIFFICULTY:
