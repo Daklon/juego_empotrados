@@ -17,6 +17,10 @@
 #define PORTRAIT_ROTATION 2
 #define LANDSCAPE_ROTATION 1
 
+#define ST7735_GOLD 0xFE00
+#define ST7735_SILVER 0xC618
+#define ST7735_BRONZE 0xCBE6
+
 #define BAR_WIDTH 20
 #define BALL_MARGIN 30
 
@@ -499,7 +503,35 @@ difficulty change_difficulty(difficulty dificultad) {
 
 // Muestra, en orden descendente, las
 // mejores puntuaciones
-void show_high_scores() {}
+void show_high_scores() {
+	int i, cursor_offset = 35, cursor_margin = 20;
+	tft.fillScreen(ST7735_BLACK);
+	tft.setCursor(15, cursor_margin);
+	tft.setTextSize(2);
+	tft.setTextColor(ST7735_RED);
+	tft.print("HIGH-SCORES\n");
+
+	tft.setTextSize(2);
+	for (i = 0; i < 3; i++) {
+		if (i == 0) { tft.setTextColor(ST7735_GOLD); }
+		else if (i == 1){ tft.setTextColor(ST7735_SILVER); }
+		else { tft.setTextColor(ST7735_BRONZE); }
+		tft.setCursor(10, cursor_offset + cursor_margin * (i + 1));
+		tft.print(i + 1);
+		tft.setTextSize(1);
+		tft.print("o ");
+		tft.setTextSize(2);
+		tft.print(puntuaciones[i].player_name);
+		tft.setCursor(115, cursor_offset + cursor_margin * (i + 1));
+		tft.print(puntuaciones[i].score);
+	}
+	delay(200);
+	while (!mando.pulsador) {
+		readJoystick();
+	}
+	delay(200);
+	readJoystick();
+}
 
 void print_bye_screen() {
 	tft.fillScreen(ST7735_BLACK);
@@ -523,6 +555,19 @@ void setup(void) {
 	dificultad = EASY;
 	mando.pulsador = 0;
 	mando.movimiento = 1;
+
+	high_score filler;
+	strcpy(filler.player_name, "WINNER ");
+
+	// TODO (Daklon): Inserta los resultados desde la EEPROM
+	// y quita este código:
+	// >>>>>
+	filler.score = 0;
+
+	for (int i = 0; i < 10; i++) {
+		puntuaciones[i] = filler;
+	}
+	// >>>>>
 }
 
 //Aquí va el código del juego
