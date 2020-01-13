@@ -15,7 +15,7 @@
 #define TFT_RESOLUTION_X 160
 #define TFT_RESOLUTION_Y 128
 
-#define PORTRAIT_ROTATION 0
+#define PORTRAIT_ROTATION 2
 #define LANDSCAPE_ROTATION 1
 
 #define BAR_WIDTH 20
@@ -29,8 +29,16 @@ typedef enum {
 	START_GAME = 0,
 	DIFFICULTY,
 	HIGH_SCORE,
-	QUIT
+	QUIT,
+	_size
 } menu;
+
+char const *menu_strings[4] = {
+	"START GAME",
+	"DIFFICULTY",
+	"HIGH-SCORES",
+	"QUIT"
+};
 
 // Dificultad de la IA. Determina la velocidad de movimiento
 typedef enum {
@@ -76,22 +84,54 @@ void readJoystick(void) {
 	mando.pulsador = digitalRead(JOYSTICK_SWITCH) == 1 ? 0 : 1;
 }
 
+void print_menu(menu opcion) {
+	int i, cursor_offset = 35, cursor_margin = 18;
+	tft.setCursor(25, cursor_margin);
+	tft.setTextSize(4);
+	tft.setTextColor(ST7735_RED);
+	tft.print("PONG");
+
+	tft.setTextSize(2);
+	for (i = 0; i < (int)_size; i++) {
+		tft.setCursor(15, cursor_offset + cursor_margin * (i + 1));
+		((int)opcion == i) ? tft.setTextColor(ST7735_YELLOW) : tft.setTextColor(ST7735_WHITE);
+		tft.print(menu_strings[i]);
+	}
+
+
+}
 // Utiliza el joystick para determinar
 // la opción escogida.
 // Devuelve el valor al pulsar el joystick
 menu start_menu() {
 	menu seleccion = START_GAME;
 	tft.fillScreen(ST7735_BLACK);
+	delay(100);
+	readJoystick();
 	while (!mando.pulsador) {
-			tft.setCursor(30, 20);
-			tft.setTextSize(4);
-			tft.setTextColor(ST7735_BLUE);
-			tft.print("PONG");
-			while (!mando.movimiento || !mando.pulsador) {
-				readJoystick();
+		print_menu(seleccion);
+		do {
+			readJoystick();
+		} while (mando.movimiento == 1 && !mando.pulsador);
+
+		if (mando.movimiento != 1) {
+			switch (seleccion) {
+			case START_GAME:
+				seleccion = (mando.movimiento > 1) ? DIFFICULTY : QUIT;
+				break;
+			case DIFFICULTY:
+				seleccion = (mando.movimiento > 1) ? HIGH_SCORE : START_GAME;
+				break;
+			case HIGH_SCORE:
+				seleccion = (mando.movimiento > 1) ? QUIT : DIFFICULTY;
+				break;
+			case QUIT:
+				seleccion = (mando.movimiento > 1) ? START_GAME: HIGH_SCORE;
+				break;
 			}
-	}
+		}
 	delay(200);
+	}
 	readJoystick();
 	return seleccion;
 }
@@ -294,12 +334,24 @@ void start_game(difficulty dificultad) {
 }
 
 // Selecciona entre dificultades
-difficulty change_difficulty() {}
+difficulty change_difficulty() {
+	return EASY;
+}
 
 // Muestra, en orden descendente, las
 // mejores puntuaciones
 void show_high_scores() {}
 
+void print_bye_screen() {
+	tft.fillScreen(ST7735_BLACK);
+	tft.setCursor(35, 25);
+	tft.setTextSize(4);
+	tft.setTextColor(ST7735_WHITE);
+	tft.print("BYE!");
+	tft.setRotation(PORTRAIT_ROTATION);
+	tft.setCursor(65, 70);
+	tft.print(":)");
+}
 
 void setup(void) {
 	Serial.begin(9600);
@@ -309,7 +361,6 @@ void setup(void) {
 	tft.fillScreen(ST7735_BLACK);
 	tft.setRotation(LANDSCAPE_ROTATION);
 
-	opcion_menu = START_GAME;
 	dificultad = HARD;
 	mando.pulsador = 0;
 	mando.movimiento = 1;
@@ -325,16 +376,15 @@ void loop(){
 		case START_GAME:
 			start_game(dificultad);
 			break;
-		/*
 		case DIFFICULTY:
-			difficulty = change_difficulty();
+			dificultad = change_difficulty();
 			break;
 		case HIGH_SCORE:
 			show_high_scores();
 			break;
-		*/
 		}
 	}
 	while (opcion_menu != QUIT);
+	print_bye_screen();
 	exit(0);
 }
