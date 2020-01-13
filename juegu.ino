@@ -1,6 +1,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
 #include <SPI.h>
+#include <EEPROM.h>
 
 #define SECONDS 1000
 
@@ -349,7 +350,7 @@ void swap_high_scores(uint8_t pos) {
 /**
   2. Si el nombre existe => incrementar score del jugador
   3. Ordenar la lista de jugadores
-  4. TODO: (Daklon) Guardar la lista en la EEPRON
+  4. (Daklon) Guardar la lista en la EEPRON
 */
 void update_high_scores(char *nombre) {
 	uint8_t i;
@@ -359,6 +360,7 @@ void update_high_scores(char *nombre) {
 			if (!strcmp(puntuaciones[i]->player_name, nombre)) {
 				puntuaciones[i]->score += 1;
 				swap_high_scores(i);
+        EEPROM_save_score(i);
 				return;
 			}
 		} else {
@@ -367,9 +369,42 @@ void update_high_scores(char *nombre) {
 			aux.score = 1;
 			puntuaciones[i] = new high_score;
 			*puntuaciones[i] = aux;
+      EEPROM_save_score(i);
 			return;
 		}
 	}
+}
+
+//TODO: Testing
+//recibe la puntuación y su posición, para evitar
+//reescribir todo el array
+void EEPROM_save_score(uint8_t index) {
+  uint8_t i;
+  uint8_t address = sizeof(high_score)*index;
+  uint8_t offset = 0;
+  //la eeprom escribe y lee por bytes
+  for (i = 0; i < sizeof(high_score); i++) {
+    EEPROM.update(address,puntuaciones[index]+offset); //con update evitamos reescribir la línea si ya tiene el valor que vamos a escribir
+    address++;
+    offset++;
+  }
+}
+
+//TODO:testing
+//espera un puntero del tipo high_score y una posición,
+//establece el valor de puntuación a el valor almacenado
+//en la posición indicada de la eeprom
+void EEPROM_load_score(high_score *puntuacion,uint8_t index) {
+  uint8_t i;
+  uint8_t address = sizeof(high_score)*index;
+  uint8_t offset = 0;
+  char readed[sizeof(high_score)];
+  high_score readed_score;
+  for (i = 0; i < sizeof(high_score); i++) {
+    readed[i] = EEPROM.read(address);
+    address++;
+  }
+  memcpy(puntuacion,readed,sizeof(high_score));
 }
 
 void save_player_score() {
@@ -751,7 +786,10 @@ void setup(void) {
 	mando.pulsador = 0;
 	mando.movimiento = 1;
 
-	// TODO (Daklon): Inserta los resultados desde la EEPROM
+	// (Daklon): Inserta los resultados desde la EEPROM
+  for (uint8_t i = 0; i< 10; i++) {
+    EEPROM_load_score(puntuaciones[i],i);
+  }
 }
 
 //Aquí va el código del juego
