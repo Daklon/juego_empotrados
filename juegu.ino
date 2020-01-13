@@ -71,7 +71,7 @@ typedef struct {
 } ball;
 
 typedef struct {
-	char player_name[16];
+	char player_name[8];
 	unsigned score = 0;
 } high_score;
 
@@ -167,7 +167,7 @@ menu start_menu() {
 				break;
 			}
 		}
-	delay(200);
+		delay(200);
 	}
 	readJoystick();
 	return seleccion;
@@ -294,6 +294,89 @@ bool check_collition_vertical(ball *pelota) {
 	return false;
 }
 
+void print_savescore_screen(char *nombre, uint8_t position) {
+	static uint8_t blink_factor = 0;
+	uint8_t i;
+	tft.setCursor(15, 18);
+	tft.setTextSize(2);
+	tft.setTextColor(ST7735_RED);
+	tft.print("ENTER NAME:");
+
+	tft.setTextSize(3);
+	for (i = 0; i < 7; i++) {
+		tft.setTextColor(ST7735_WHITE);
+		tft.setCursor(10 + 20 * i, 60);
+		if (blink_factor < 128 && position == i) {
+			tft.setTextColor(ST7735_YELLOW);
+			tft.print(nombre[i]);
+			tft.setCursor(10 + 20 * i, 70);
+			tft.print("_");
+		} else if (blink_factor >= 128 && position == i) {
+			tft.setTextColor(ST7735_BLACK);
+			tft.print(nombre[i]);
+		} else if (position != i) {
+			tft.print(nombre[i]);
+			tft.setTextColor(ST7735_BLACK);
+			tft.setCursor(10 + 20 * i, 70);
+			tft.print("_");
+		}
+	}
+	blink_factor += 8;
+}
+
+void clear_marked_letter(char letter, uint8_t position) {
+	tft.setCursor(10 + 20 * position, 60);
+	tft.setTextColor(ST7735_BLACK);
+	tft.print(letter);
+}
+
+/**
+  2. Si el nombre existe => incrementar score del jugador
+  3. Ordenar la lista de jugadores
+  4. TODO: (Daklon) Guardar la lista en la EEPRON
+*/
+void update_high_scores(char *nombre) {
+
+}
+
+void save_player_score() {
+	// high_score score;
+	uint8_t character_position = 0;
+	char nombre[8] = "AAAAAAA";
+	tft.fillScreen(ST7735_BLACK);
+	delay(100);
+	readJoystick();
+	while (!mando.pulsador || character_position != 7) {
+		do {
+			print_savescore_screen(nombre, character_position);
+			readJoystick();
+		} while (mando.movimiento == 1 && !mando.pulsador);
+
+		if (mando.movimiento != 1) {
+			clear_marked_letter(nombre[character_position], character_position);
+			switch (nombre[character_position]) {
+			case ' ':
+				nombre[character_position] = (mando.movimiento > 1) ? 'A' : 'Z';
+				break;
+			case 'A':
+				nombre[character_position] = (mando.movimiento > 1) ? 'B' : ' ';
+				break;
+			case 'Z':
+				nombre[character_position] = (mando.movimiento > 1) ? ' ' : 'Y';
+				break;
+			default:
+				nombre[character_position] += (mando.movimiento > 1) ? 1 : -1;
+			}
+		}
+		if (mando.pulsador) {
+			character_position += 1;
+		}
+		delay(200);
+	}
+	update_high_scores(nombre);
+	readJoystick();
+}
+
 // Bucle principal del juego
 void start_game(difficulty dificultad) {
 	player jugador, maquina;
@@ -361,13 +444,15 @@ void start_game(difficulty dificultad) {
 		tft.print("PLAYER");
 		tft.setCursor(30, 70);
 		tft.print("WINS");
+		delay(2 * SECONDS);
+		save_player_score();
 	} else {
 		tft.setTextColor(ST7735_RED);
 		tft.print("PLAYER");
 		tft.setCursor(20, 70);
 		tft.print("LOSES");
+		delay(2 * SECONDS);
 	}
-	delay(2 * SECONDS);
 }
 
 void print_difficulty_menu(difficulty dificultad) {
@@ -406,7 +491,7 @@ difficulty change_difficulty(difficulty dificultad) {
 				break;
 			}
 		}
-	delay(200);
+		delay(200);
 	}
 	readJoystick();
 	return dificultad;
