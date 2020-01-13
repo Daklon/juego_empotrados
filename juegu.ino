@@ -120,7 +120,7 @@ uint8_t pong_logo[] = {
 menu opcion_menu;
 difficulty dificultad;
 joystick mando;
-high_score puntuaciones[10];
+high_score *puntuaciones[10];
 
 void readJoystick(void) {
 	int analog = analogRead(JOYSTICK_ANALOG_Y);
@@ -145,7 +145,7 @@ void print_menu(menu opcion) {
 // la opción escogida.
 // Devuelve el valor al pulsar el joystick
 menu start_menu() {
-	menu seleccion = START_GAME;
+	static menu seleccion = START_GAME;
 	tft.fillScreen(ST7735_BLACK);
 	delay(100);
 	readJoystick();
@@ -334,13 +334,42 @@ void clear_marked_letter(char letter, uint8_t position) {
 	tft.print(letter);
 }
 
+void swap_high_scores(uint8_t pos) {
+	high_score aux;
+	if (pos > 0) {
+		while (puntuaciones[pos - 1]->score < puntuaciones[pos]->score) {
+			aux = *puntuaciones[pos - 1];
+			*puntuaciones[pos - 1] = *puntuaciones[pos];
+			*puntuaciones[pos] = aux;
+			swap_high_scores(pos - 1);
+		}
+	}
+}
+
 /**
   2. Si el nombre existe => incrementar score del jugador
   3. Ordenar la lista de jugadores
   4. TODO: (Daklon) Guardar la lista en la EEPRON
 */
 void update_high_scores(char *nombre) {
-
+	uint8_t i;
+	high_score aux;
+	for (i = 0; i < 10; i++) {
+		if (puntuaciones[i] != NULL) {
+			if (!strcmp(puntuaciones[i]->player_name, nombre)) {
+				puntuaciones[i]->score += 1;
+				swap_high_scores(i);
+				return;
+			}
+		} else {
+			// poner puntuacion aqui
+			strcpy(aux.player_name, nombre);
+			aux.score = 1;
+			puntuaciones[i] = new high_score;
+			*puntuaciones[i] = aux;
+			return;
+		}
+	}
 }
 
 void save_player_score() {
@@ -521,9 +550,11 @@ void show_high_scores() {
 		tft.setTextSize(1);
 		tft.print("o ");
 		tft.setTextSize(2);
-		tft.print(puntuaciones[i].player_name);
-		tft.setCursor(115, cursor_offset + cursor_margin * (i + 1));
-		tft.print(puntuaciones[i].score);
+		if (puntuaciones[i] != NULL) {
+			tft.print(puntuaciones[i]->player_name);
+			tft.setCursor(125, cursor_offset + cursor_margin * (i + 1));
+			tft.print(puntuaciones[i]->score);
+		}
 	}
 	delay(200);
 	while (!mando.pulsador) {
@@ -556,18 +587,7 @@ void setup(void) {
 	mando.pulsador = 0;
 	mando.movimiento = 1;
 
-	high_score filler;
-	strcpy(filler.player_name, "WINNER ");
-
 	// TODO (Daklon): Inserta los resultados desde la EEPROM
-	// y quita este código:
-	// >>>>>
-	filler.score = 0;
-
-	for (int i = 0; i < 10; i++) {
-		puntuaciones[i] = filler;
-	}
-	// >>>>>
 }
 
 //Aquí va el código del juego
