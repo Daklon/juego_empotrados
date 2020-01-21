@@ -1,3 +1,9 @@
+//Pong Para arduino
+// Autores:
+// Daniel Fraga Viera
+// Óscar Carrasco Benítez
+// Javier Herrera Serpa
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
 #include <SPI.h>
@@ -123,6 +129,7 @@ difficulty dificultad;
 joystick mando;
 high_score *puntuaciones[10];
 
+//reads the joystick
 void readJoystick(void) {
 	int analog = analogRead(JOYSTICK_ANALOG_Y);
 
@@ -130,6 +137,7 @@ void readJoystick(void) {
 	mando.pulsador = digitalRead(JOYSTICK_SWITCH) == 1 ? 0 : 1;
 }
 
+// Prints the main menu, with the pong logo in it
 void print_menu(menu opcion) {
 	int i, cursor_offset = 35, cursor_margin = 18;
 
@@ -178,6 +186,8 @@ menu start_menu() {
 	return seleccion;
 }
 
+// Redraw the ball each tiem its called using
+// the values defined in pelota
 void draw_ball(ball pelota, unsigned color) {
 	clear_ball(pelota);
 	tft.drawPixel(pelota.pos_x, pelota.pos_y, color);
@@ -187,6 +197,7 @@ void draw_ball(ball pelota, unsigned color) {
 	tft.drawPixel(pelota.pos_x, pelota.pos_y - 1, color);
 }
 
+// Clear the screen from the ball
 void clear_ball(ball pelota) {
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y + 1, ST7735_BLACK);
 	tft.drawPixel(pelota.pos_x + 1, pelota.pos_y - 1, ST7735_BLACK);
@@ -195,6 +206,7 @@ void clear_ball(ball pelota) {
 	tft.drawCircle(pelota.pos_x, pelota.pos_y, 2, ST7735_BLACK);
 }
 
+// Draws the bar of the player
 void draw_bar(player jugador) {
 	unsigned pos_x = (jugador.is_left) ? 20 : TFT_RESOLUTION_X - 20;
 	tft.drawPixel(pos_x, jugador.pos_y - 1, ST7735_BLACK);
@@ -202,6 +214,7 @@ void draw_bar(player jugador) {
 	tft.drawFastVLine(pos_x, jugador.pos_y, BAR_WIDTH, ST7735_WHITE);
 }
 
+// Draws the score in the top of the screen
 void draw_score(player jugador, unsigned color) {
 	unsigned score_pos = jugador.is_left ? 40 : TFT_RESOLUTION_X - 48;
 	tft.setCursor(score_pos, 10);
@@ -210,6 +223,8 @@ void draw_score(player jugador, unsigned color) {
 	tft.print(jugador.score);
 }
 
+// It moves the bar of the player using the
+// readed data from the joystick
 void move_player(player *jugador) {
 	readJoystick();
 	if (mando.movimiento > 1 && (jugador->pos_y + BAR_WIDTH) != TFT_RESOLUTION_Y)
@@ -218,6 +233,8 @@ void move_player(player *jugador) {
 	{ jugador->pos_y -= 1; }
 }
 
+// Moves the bar of the machine based in the
+// difficulty level select at start
 void move_machine(player *machine, ball pelota) {
 	static unsigned do_inverse = 0;
 	if (pelota.pos_y > (machine->pos_y + BAR_WIDTH / 2) &&
@@ -251,6 +268,9 @@ void move_machine(player *machine, ball pelota) {
 	if (do_inverse > 0) { do_inverse -= 1; } else { do_inverse = random(100) == 0 ? 20 : 0; }
 }
 
+// It is used at start, allow to move the
+// bar with the ball "attached" to it until
+// the player starts
 void move_player_ball(player *jugador, ball *pelota) {
 	readJoystick();
 	if (mando.movimiento > 1 && (jugador->pos_y + BAR_WIDTH) != TFT_RESOLUTION_Y)
@@ -259,6 +279,8 @@ void move_player_ball(player *jugador, ball *pelota) {
 	{ jugador->pos_y -= 1; pelota->pos_y -= 1; }
 }
 
+// Calculates where should be the ball the
+// next time
 void move_ball(ball *pelota, int sentido) {
 	static unsigned contador_angulo = 0;
 	pelota->pos_x += sentido;
@@ -271,6 +293,8 @@ void move_ball(ball *pelota, int sentido) {
 	}
 }
 
+// Checks if the ball has colide to the player
+// or machine bars
 bool check_collition_bar(ball *pelota, player a, player b) {
 	if (pelota->pos_x == TFT_RESOLUTION_X - 20 || pelota->pos_x == 20) {
 		if ((pelota->pos_y >= a.pos_y && pelota->pos_y <= (a.pos_y + BAR_WIDTH) && pelota->goes_left) ||
@@ -295,6 +319,8 @@ bool check_collition_bar(ball *pelota, player a, player b) {
 	return false;
 }
 
+// Checks if the ball colide with the top
+// or the bottom
 bool check_collition_vertical(ball *pelota) {
 	if (pelota->pos_y - 1 == 0 || pelota->pos_y + 1 == TFT_RESOLUTION_Y) {
 		pelota->angle = (pelota->angle == 0) ? -3 : -pelota->angle;
@@ -305,6 +331,8 @@ bool check_collition_vertical(ball *pelota) {
 	return false;
 }
 
+// Prints the Screen that allows the player
+// to save his score
 void print_savescore_screen(char *nombre, uint8_t position) {
 	static uint8_t blink_factor = 0;
 	uint8_t i;
@@ -341,6 +369,8 @@ void clear_marked_letter(char letter, uint8_t position) {
 	tft.print(letter);
 }
 
+// Reorder the score pointer in order
+// to keep it sorted by the score
 void swap_high_scores(uint8_t pos) {
 	high_score aux;
 	if (pos > 0) {
@@ -404,6 +434,8 @@ void EEPROM_load_score(uint8_t index) {
   }
 }
 
+// Allows the player to enter his name
+// and calls the function to save the score
 void save_player_score() {
 	// high_score score;
 	uint8_t character_position = 0;
@@ -519,6 +551,9 @@ void start_game(difficulty dificultad) {
 	}
 }
 
+// Prints the menu to chose the difficulty
+// The difficulty is defined by the speed
+// of the ball
 void print_difficulty_menu(difficulty dificultad) {
 	int i, cursor_offset = 35, cursor_margin = 18;
 	tft.setCursor(20, cursor_margin);
@@ -595,6 +630,7 @@ void show_high_scores() {
 	readJoystick();
 }
 
+//Prints message when the game is halted
 void print_bye_screen() {
 	tft.fillScreen(ST7735_BLACK);
 	tft.setCursor(35, 25);
@@ -606,8 +642,9 @@ void print_bye_screen() {
 	tft.print(":)");
 }
 
-// Esto no es bonito, pero es necesario hacerlo así
-// para rellenar la eeprom con datos válidos "vacios"
+// Fills the EEPROM with "valid" empty values
+// in order to set it to defined values and
+// avoid reading garbage from the EEPROM
 void clear_eeprom(){
   high_score aux;
   strcpy(aux.player_name,"0000000");
